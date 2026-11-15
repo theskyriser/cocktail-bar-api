@@ -17,7 +17,7 @@ class StockItemData extends Data
         public ?float $percentage_filled,
     ) {}
 
-    public static function fromBarStock(BarStock $stock)
+    public static function fromBarStock(BarStock $stock): self
     {
         $percentage_filled = null;
 

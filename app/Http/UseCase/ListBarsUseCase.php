@@ -7,7 +7,7 @@ use App\Models\Bar;
 
 class ListBarsUseCase
 {
-    public function handle()
+    public function handle(): BarListData
     {
         $user = auth()->user()->id;
 
