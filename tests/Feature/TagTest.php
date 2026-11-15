@@ -1,77 +1,96 @@
 <?php
 
+namespace Tests\Feature;
+
 use App\Models\Recipe;
 use App\Models\RecipeTag;
 use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
 
-it('tags a recipe and reads it back from both sides', function () {
-    $user = User::factory()->create();
-    $recipe = Recipe::factory()->create(['name' => 'Negroni']);
-    $tag = Tag::factory()->ownedBy($user)->create(['name' => 'bitter']);
+class TagTest extends TestCase
+{
+    use RefreshDatabase;
 
-    $recipe->tags()->attach($tag);
+    public function test_it_tags_a_recipe_and_reads_it_back_from_both_sides(): void
+    {
+        $user = User::factory()->create();
+        $recipe = Recipe::factory()->create(['name' => 'Negroni']);
+        $tag = Tag::factory()->ownedBy($user)->create(['name' => 'bitter']);
 
-    expect($recipe->tags->pluck('name')->all())->toBe(['bitter'])
-        ->and($tag->recipes->pluck('name')->all())->toBe(['Negroni']);
-});
+        $recipe->tags()->attach($tag);
 
-it('stamps the join row when a tag is applied', function () {
-    $recipe = Recipe::factory()->create();
-    $tag = Tag::factory()->create();
+        $this->assertSame(['bitter'], $recipe->tags->pluck('name')->all());
+        $this->assertSame(['Negroni'], $tag->recipes->pluck('name')->all());
+    }
 
-    $recipe->tags()->attach($tag);
+    public function test_it_stamps_the_join_row_when_a_tag_is_applied(): void
+    {
+        $recipe = Recipe::factory()->create();
+        $tag = Tag::factory()->create();
 
-    expect(RecipeTag::sole()->created_at)->not->toBeNull();
-});
+        $recipe->tags()->attach($tag);
 
-it('lets two users each hold a tag of the same name', function () {
-    $first = Tag::factory()->ownedBy(User::factory()->create())->create(['name' => 'sour']);
-    $second = Tag::factory()->ownedBy(User::factory()->create())->create(['name' => 'sour']);
+        $this->assertNotNull(RecipeTag::sole()->created_at);
+    }
 
-    expect($first->name)->toBe($second->name)
-        ->and($first->user_id)->not->toBe($second->user_id);
-});
+    public function test_it_lets_two_users_each_hold_a_tag_of_the_same_name(): void
+    {
+        $first = Tag::factory()->ownedBy(User::factory()->create())->create(['name' => 'sour']);
+        $second = Tag::factory()->ownedBy(User::factory()->create())->create(['name' => 'sour']);
 
-it('refuses the same tag name twice for one user', function () {
-    $user = User::factory()->create();
-    Tag::factory()->ownedBy($user)->create(['name' => 'sour']);
+        $this->assertSame($second->name, $first->name);
+        $this->assertNotSame($second->user_id, $first->user_id);
+    }
 
-    expect(fn () => Tag::factory()->ownedBy($user)->create(['name' => 'sour']))
-        ->toThrow(QueryException::class);
-});
+    public function test_it_refuses_the_same_tag_name_twice_for_one_user(): void
+    {
+        $user = User::factory()->create();
+        Tag::factory()->ownedBy($user)->create(['name' => 'sour']);
 
-it('refuses to apply the same tag to a recipe twice', function () {
-    $recipe = Recipe::factory()->create();
-    $tag = Tag::factory()->create();
+        $this->expectException(QueryException::class);
 
-    $recipe->tags()->attach($tag);
+        Tag::factory()->ownedBy($user)->create(['name' => 'sour']);
+    }
 
-    expect(fn () => $recipe->tags()->attach($tag))->toThrow(QueryException::class);
-});
+    public function test_it_refuses_to_apply_the_same_tag_to_a_recipe_twice(): void
+    {
+        $recipe = Recipe::factory()->create();
+        $tag = Tag::factory()->create();
 
-it('drops the join rows when a recipe or a tag goes', function () {
-    $recipe = Recipe::factory()->create();
-    $tag = Tag::factory()->create();
-    $recipe->tags()->attach($tag);
+        $recipe->tags()->attach($tag);
 
-    $recipe->delete();
-    expect(RecipeTag::count())->toBe(0);
+        $this->expectException(QueryException::class);
 
-    $other = Recipe::factory()->create();
-    $other->tags()->attach($tag);
-    $tag->delete();
+        $recipe->tags()->attach($tag);
+    }
 
-    expect(RecipeTag::count())->toBe(0)
-        ->and($other->fresh())->not->toBeNull();
-});
+    public function test_it_drops_the_join_rows_when_a_recipe_or_a_tag_goes(): void
+    {
+        $recipe = Recipe::factory()->create();
+        $tag = Tag::factory()->create();
+        $recipe->tags()->attach($tag);
 
-it('drops a users tags when the user goes', function () {
-    $user = User::factory()->create();
-    Tag::factory()->ownedBy($user)->create();
+        $recipe->delete();
+        $this->assertSame(0, RecipeTag::count());
 
-    $user->delete();
+        $other = Recipe::factory()->create();
+        $other->tags()->attach($tag);
+        $tag->delete();
 
-    expect(Tag::count())->toBe(0);
-});
+        $this->assertSame(0, RecipeTag::count());
+        $this->assertNotNull($other->fresh());
+    }
+
+    public function test_it_drops_a_users_tags_when_the_user_goes(): void
+    {
+        $user = User::factory()->create();
+        Tag::factory()->ownedBy($user)->create();
+
+        $user->delete();
+
+        $this->assertSame(0, Tag::count());
+    }
+}

@@ -18,7 +18,13 @@ class GlassFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => $this->faker->randomElement([
+                'Coupe',
+                'Highball',
+                'Martini',
+                'Nick & Nora',
+                'Rocks',
+            ]),
         ];
     }
 }

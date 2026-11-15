@@ -1,51 +1,64 @@
 <?php
 
+namespace Tests\Feature\Auth;
+
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
+use Tests\TestCase;
 
-test('users can authenticate', function () {
-    $user = User::factory()->create();
+class AuthenticationTest extends TestCase
+{
+    use RefreshDatabase;
 
-    $this->postJson(route('login.store'), [
-        'email' => $user->email,
-        'password' => 'password',
-    ])
-        ->assertOk()
-        ->assertExactJson(['two_factor' => false]);
+    public function test_users_can_authenticate(): void
+    {
+        $user = User::factory()->create();
 
-    $this->assertAuthenticatedAs($user);
-});
+        $this->postJson(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'password',
+        ])
+            ->assertOk()
+            ->assertExactJson(['two_factor' => false]);
 
-test('users can not authenticate with invalid password', function () {
-    $user = User::factory()->create();
+        $this->assertAuthenticatedAs($user);
+    }
 
-    $this->postJson(route('login.store'), [
-        'email' => $user->email,
-        'password' => 'wrong-password',
-    ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('email');
+    public function test_users_can_not_authenticate_with_invalid_password(): void
+    {
+        $user = User::factory()->create();
 
-    $this->assertGuest();
-});
+        $this->postJson(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
 
-test('users can logout', function () {
-    $user = User::factory()->create();
+        $this->assertGuest();
+    }
 
-    $this->actingAs($user)
-        ->postJson(route('logout'))
-        ->assertNoContent();
+    public function test_users_can_logout(): void
+    {
+        $user = User::factory()->create();
 
-    $this->assertGuest();
-});
+        $this->actingAs($user)
+            ->postJson(route('logout'))
+            ->assertNoContent();
 
-test('users are rate limited', function () {
-    $user = User::factory()->create();
+        $this->assertGuest();
+    }
 
-    RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);
+    public function test_users_are_rate_limited(): void
+    {
+        $user = User::factory()->create();
 
-    $this->postJson(route('login.store'), [
-        'email' => $user->email,
-        'password' => 'wrong-password',
-    ])->assertTooManyRequests();
-});
+        RateLimiter::increment(md5('login'.implode('|', [$user->email, '127.0.0.1'])), amount: 5);
+
+        $this->postJson(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ])->assertTooManyRequests();
+    }
+}

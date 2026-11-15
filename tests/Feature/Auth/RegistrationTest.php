@@ -1,36 +1,50 @@
 <?php
 
+namespace Tests\Feature\Auth;
+
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Fortify\Features;
+use Tests\TestCase;
 
-beforeEach(function () {
-    $this->skipUnlessFortifyHas(Features::registration());
-});
+class RegistrationTest extends TestCase
+{
+    use RefreshDatabase;
 
-test('new users can register', function () {
-    $this->postJson(route('register.store'), [
-        'name' => 'Test User',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ])->assertCreated();
+    protected function setUp(): void
+    {
+        parent::setUp();
 
-    $this->assertAuthenticated();
+        $this->skipUnlessFortifyHas(Features::registration());
+    }
 
-    expect(User::where('email', 'test@example.com')->exists())->toBeTrue();
-});
+    public function test_new_users_can_register(): void
+    {
+        $this->postJson(route('register.store'), [
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertCreated();
 
-test('registration rejects a duplicate email', function () {
-    User::factory()->create(['email' => 'taken@example.com']);
+        $this->assertAuthenticated();
 
-    $this->postJson(route('register.store'), [
-        'name' => 'Test User',
-        'email' => 'taken@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('email');
+        $this->assertTrue(User::where('email', 'test@example.com')->exists());
+    }
 
-    $this->assertGuest();
-});
+    public function test_registration_rejects_a_duplicate_email(): void
+    {
+        User::factory()->create(['email' => 'taken@example.com']);
+
+        $this->postJson(route('register.store'), [
+            'name' => 'Test User',
+            'email' => 'taken@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+
+        $this->assertGuest();
+    }
+}

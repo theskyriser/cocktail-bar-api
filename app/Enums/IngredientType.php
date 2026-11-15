@@ -13,4 +13,19 @@ enum IngredientType: string
     case Syrup = 'syrup';
     case Mixer = 'mixer';
     case Garnish = 'garnish';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Spirit => 'Spirits',
+            self::Liqueur => 'Liqueurs',
+            self::Fortified => 'Fortified Wines',
+            self::Bitters => 'Bitters',
+            self::Fresh => 'Fresh',
+            self::Juice => 'Juices',
+            self::Syrup => 'Syrups',
+            self::Mixer => 'Mixers',
+            self::Garnish => 'Garnishs',
+        };
+    }
 }
