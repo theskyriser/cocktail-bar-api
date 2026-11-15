@@ -1,86 +1,104 @@
 <?php
 
+namespace Tests\Feature\Auth;
+
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
+use Tests\TestCase;
 
-beforeEach(function () {
-    $this->skipUnlessFortifyHas(Features::resetPasswords());
-});
+class PasswordResetTest extends TestCase
+{
+    use RefreshDatabase;
 
-test('reset password link can be requested', function () {
-    Notification::fake();
+    protected function setUp(): void
+    {
+        parent::setUp();
 
-    $user = User::factory()->create();
+        $this->skipUnlessFortifyHas(Features::resetPasswords());
+    }
 
-    $this->postJson(route('password.email'), ['email' => $user->email])
-        ->assertOk()
-        ->assertJsonStructure(['message']);
+    public function test_reset_password_link_can_be_requested(): void
+    {
+        Notification::fake();
 
-    Notification::assertSentTo($user, ResetPassword::class);
-});
+        $user = User::factory()->create();
 
-test('the emailed reset link points at the SPA, not at this API', function () {
-    Notification::fake();
+        $this->postJson(route('password.email'), ['email' => $user->email])
+            ->assertOk()
+            ->assertJsonStructure(['message']);
 
-    config(['app.frontend_url' => 'https://app.example.com']);
+        Notification::assertSentTo($user, ResetPassword::class);
+    }
 
-    $user = User::factory()->create();
+    public function test_the_emailed_reset_link_points_at_the_spa_not_at_this_api(): void
+    {
+        Notification::fake();
 
-    $this->postJson(route('password.email'), ['email' => $user->email]);
+        config(['app.frontend_url' => 'https://app.example.com']);
 
-    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
-        $mail = $notification->toMail($user);
+        $user = User::factory()->create();
 
-        expect($mail->actionUrl)->toBe(sprintf(
-            'https://app.example.com/reset-password/%s?email=%s',
-            $notification->token,
-            urlencode($user->email),
-        ));
+        $this->postJson(route('password.email'), ['email' => $user->email]);
 
-        expect((string) $mail->render())
-            ->toContain('https://app.example.com/reset-password/'.$notification->token);
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $mail = $notification->toMail($user);
 
-        return true;
-    });
-});
+            $this->assertSame(sprintf(
+                'https://app.example.com/reset-password/%s?email=%s',
+                $notification->token,
+                urlencode($user->email),
+            ), $mail->actionUrl);
 
-test('password can be reset with valid token', function () {
-    Notification::fake();
+            $this->assertStringContainsString(
+                'https://app.example.com/reset-password/'.$notification->token,
+                (string) $mail->render(),
+            );
 
-    $user = User::factory()->create();
+            return true;
+        });
+    }
 
-    $this->postJson(route('password.email'), ['email' => $user->email]);
+    public function test_password_can_be_reset_with_valid_token(): void
+    {
+        Notification::fake();
 
-    Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+        $user = User::factory()->create();
+
+        $this->postJson(route('password.email'), ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user) {
+            $this->postJson(route('password.update'), [
+                'token' => $notification->token,
+                'email' => $user->email,
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ])
+                ->assertOk()
+                ->assertJsonStructure(['message']);
+
+            $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+
+            return true;
+        });
+    }
+
+    public function test_password_cannot_be_reset_with_invalid_token(): void
+    {
+        $user = User::factory()->create();
+
         $this->postJson(route('password.update'), [
-            'token' => $notification->token,
+            'token' => 'invalid-token',
             'email' => $user->email,
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
         ])
-            ->assertOk()
-            ->assertJsonStructure(['message']);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
 
-        expect(Hash::check('new-password', $user->refresh()->password))->toBeTrue();
-
-        return true;
-    });
-});
-
-test('password cannot be reset with invalid token', function () {
-    $user = User::factory()->create();
-
-    $this->postJson(route('password.update'), [
-        'token' => 'invalid-token',
-        'email' => $user->email,
-        'password' => 'new-password',
-        'password_confirmation' => 'new-password',
-    ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('email');
-
-    expect(Hash::check('new-password', $user->refresh()->password))->toBeFalse();
-});
+        $this->assertFalse(Hash::check('new-password', $user->refresh()->password));
+    }
+}

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthConfigController;
+use App\Http\Controllers\BarController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\UserController;
@@ -22,4 +23,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
             ->middleware('throttle:6,1')
             ->name('user-password.update');
     });
+
+    Route::get('bar', [BarController::class, 'index'])->name('bars.index');
 });

@@ -2,17 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\DTO\BarList\BarListData;
+use App\Http\UseCase\ListBarsUseCase;
 use App\Models\Bar;
 use Illuminate\Http\Request;
 
 class BarController extends Controller
 {
+    public function __construct(
+        public ListBarsUseCase $listBarsUseCase
+    ) {}
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): void
+    public function index(): BarListData
     {
-        //
+        return $this->listBarsUseCase->handle();
     }
 
     /**
