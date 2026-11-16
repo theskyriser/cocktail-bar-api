@@ -15,6 +15,14 @@ class IngredientSeeder extends Seeder
      * The curated tree, keyed on slug so a second run updates the row it
      * already created. Curated rows carry a null creator, which is what the
      * partial unique indexes on `slug` and `path` are scoped to.
+     *
+     * Three tiers, and `kind` names each one rather than leaving it to depth:
+     * a **category** is the broad group a filter chip names (Whiskey), a
+     * **style** is what a recipe line asks for (Bourbon), and a **product** is
+     * a brand someone puts on a shelf (Buffalo Trace). Depth is not uniform,
+     * because brands are not uniform: Plymouth Gin is a brand with no style
+     * above it, and a lime has no brand below it. Reading `kind` tells you
+     * what a row is; counting the dots in `path` does not.
      */
     public function run(): void
     {
@@ -25,15 +33,31 @@ class IngredientSeeder extends Seeder
             $parent = $this->upsert($category, IngredientKind::Category, null);
             $bySlug[$parent->slug] = $parent;
 
-            foreach ($category['products'] as $product) {
-                $child = $this->upsert([
-                    'type' => $category['type'],
-                    'is_alcoholic' => $category['is_alcoholic'],
-                    'default_unit' => $category['default_unit'],
-                    ...$product,
-                ], IngredientKind::Product, $parent);
+            foreach ($category['styles'] ?? [] as $style) {
+                $styleRow = $this->upsert(
+                    [...$this->inheritableFrom($parent), ...$style],
+                    IngredientKind::Style,
+                    $parent,
+                );
+                $bySlug[$styleRow->slug] = $styleRow;
 
-                $bySlug[$child->slug] = $child;
+                foreach ($style['products'] ?? [] as $brand) {
+                    $brandRow = $this->upsert(
+                        [...$this->inheritableFrom($styleRow), ...$brand],
+                        IngredientKind::Product,
+                        $styleRow,
+                    );
+                    $bySlug[$brandRow->slug] = $brandRow;
+                }
+            }
+
+            foreach ($category['products'] ?? [] as $brand) {
+                $brandRow = $this->upsert(
+                    [...$this->inheritableFrom($parent), ...$brand],
+                    IngredientKind::Product,
+                    $parent,
+                );
+                $bySlug[$brandRow->slug] = $brandRow;
             }
         }
 
@@ -41,8 +65,25 @@ class IngredientSeeder extends Seeder
     }
 
     /**
-     * A recipe line against a category is already satisfied by any product
-     * beneath it, so only a stand-in that crosses categories needs a row here.
+     * What a child takes from its parent unless it names its own. Read off the
+     * saved row rather than the array, so a style that overrides its unit
+     * passes that override down to its brands.
+     *
+     * @return array{type: IngredientType, is_alcoholic: bool, default_unit: MeasurementUnit}
+     */
+    private function inheritableFrom(Ingredient $parent): array
+    {
+        return [
+            'type' => $parent->type,
+            'is_alcoholic' => $parent->is_alcoholic,
+            'default_unit' => $parent->default_unit,
+        ];
+    }
+
+    /**
+     * A recipe line against a category or a style is already satisfied by any
+     * row beneath it, so only a stand-in that crosses the tree needs a row
+     * here.
      *
      * @param  array<string, Ingredient>  $bySlug
      */
@@ -88,10 +129,20 @@ class IngredientSeeder extends Seeder
     }
 
     /**
-     * Products inherit their category's type, strength and unit unless they
-     * name their own.
+     * Styles and brands inherit their parent's type, strength and unit unless
+     * they name their own. A category may carry brands directly, for the
+     * spirits where no style sits in between.
      *
-     * @return array<int, array{slug: string, name: string, type: IngredientType, is_alcoholic: bool, default_unit: MeasurementUnit, aliases?: array<int, string>, products: array<int, array{slug: string, name: string, aliases?: array<int, string>, type?: IngredientType, is_alcoholic?: bool, default_unit?: MeasurementUnit}>}>
+     * @return array<int, array{
+     *     slug: string,
+     *     name: string,
+     *     type: IngredientType,
+     *     is_alcoholic: bool,
+     *     default_unit: MeasurementUnit,
+     *     aliases?: array<int, string>,
+     *     styles?: array<int, array{slug: string, name: string, aliases?: array<int, string>, type?: IngredientType, is_alcoholic?: bool, default_unit?: MeasurementUnit, products?: array<int, array{slug: string, name: string, aliases?: array<int, string>, type?: IngredientType, is_alcoholic?: bool, default_unit?: MeasurementUnit}>}>,
+     *     products?: array<int, array{slug: string, name: string, aliases?: array<int, string>, type?: IngredientType, is_alcoholic?: bool, default_unit?: MeasurementUnit}>
+     * }>
      */
     private function categories(): array
     {
@@ -102,8 +153,27 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Spirit,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
+                'styles' => [
+                    [
+                        'slug' => 'london-dry-gin',
+                        'name' => 'London Dry Gin',
+                        'aliases' => ['london dry', 'dry gin'],
+                        'products' => [
+                            ['slug' => 'tanqueray', 'name' => 'Tanqueray London Dry', 'aliases' => ['tanqueray']],
+                            ['slug' => 'beefeater', 'name' => 'Beefeater London Dry', 'aliases' => ['beefeater']],
+                            ['slug' => 'sipsmith', 'name' => 'Sipsmith London Dry', 'aliases' => ['sipsmith']],
+                        ],
+                    ],
+                    [
+                        'slug' => 'old-tom-gin',
+                        'name' => 'Old Tom Gin',
+                        'aliases' => ['old tom'],
+                        'products' => [
+                            ['slug' => 'haymans-old-tom', 'name' => "Hayman's Old Tom"],
+                        ],
+                    ],
+                ],
                 'products' => [
-                    ['slug' => 'london-dry-gin', 'name' => 'London Dry Gin', 'aliases' => ['london dry', 'dry gin']],
                     ['slug' => 'plymouth-gin', 'name' => 'Plymouth Gin', 'aliases' => ['plymouth']],
                 ],
             ],
@@ -114,10 +184,35 @@ class IngredientSeeder extends Seeder
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
                 'aliases' => ['whisky'],
-                'products' => [
-                    ['slug' => 'bourbon', 'name' => 'Bourbon', 'aliases' => ['bourbon whiskey']],
-                    ['slug' => 'rye', 'name' => 'Rye', 'aliases' => ['rye whiskey']],
-                    ['slug' => 'scotch', 'name' => 'Scotch', 'aliases' => ['scotch whisky']],
+                'styles' => [
+                    [
+                        'slug' => 'bourbon',
+                        'name' => 'Bourbon',
+                        'aliases' => ['bourbon whiskey'],
+                        'products' => [
+                            ['slug' => 'buffalo-trace', 'name' => 'Buffalo Trace'],
+                            ['slug' => 'four-roses', 'name' => 'Four Roses Yellow Label', 'aliases' => ['four roses']],
+                            ['slug' => 'woodford-reserve', 'name' => 'Woodford Reserve'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'rye',
+                        'name' => 'Rye',
+                        'aliases' => ['rye whiskey'],
+                        'products' => [
+                            ['slug' => 'rittenhouse', 'name' => 'Rittenhouse Rye 100', 'aliases' => ['rittenhouse']],
+                            ['slug' => 'sazerac-rye', 'name' => 'Sazerac Rye'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'scotch',
+                        'name' => 'Scotch',
+                        'aliases' => ['scotch whisky'],
+                        'products' => [
+                            ['slug' => 'monkey-shoulder', 'name' => 'Monkey Shoulder'],
+                            ['slug' => 'laphroaig-10', 'name' => 'Laphroaig 10'],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -126,9 +221,25 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Spirit,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
-                    ['slug' => 'white-rum', 'name' => 'White Rum', 'aliases' => ['light rum', 'silver rum']],
-                    ['slug' => 'dark-rum', 'name' => 'Dark Rum', 'aliases' => ['aged rum']],
+                'styles' => [
+                    [
+                        'slug' => 'white-rum',
+                        'name' => 'White Rum',
+                        'aliases' => ['light rum', 'silver rum'],
+                        'products' => [
+                            ['slug' => 'havana-club-3', 'name' => 'Havana Club 3 Anos', 'aliases' => ['havana club']],
+                            ['slug' => 'plantation-3-stars', 'name' => 'Plantation 3 Stars'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'dark-rum',
+                        'name' => 'Dark Rum',
+                        'aliases' => ['aged rum'],
+                        'products' => [
+                            ['slug' => 'appleton-signature', 'name' => 'Appleton Estate Signature', 'aliases' => ['appleton']],
+                            ['slug' => 'mount-gay-black-barrel', 'name' => 'Mount Gay Black Barrel'],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -137,8 +248,16 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Spirit,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
-                    ['slug' => 'blanco-tequila', 'name' => 'Blanco Tequila', 'aliases' => ['silver tequila', 'tequila blanco']],
+                'styles' => [
+                    [
+                        'slug' => 'blanco-tequila',
+                        'name' => 'Blanco Tequila',
+                        'aliases' => ['silver tequila', 'tequila blanco'],
+                        'products' => [
+                            ['slug' => 'olmeca-altos-plata', 'name' => 'Olmeca Altos Plata', 'aliases' => ['altos']],
+                            ['slug' => 'tapatio-blanco', 'name' => 'Tapatio Blanco'],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -147,7 +266,10 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Spirit,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [],
+                'products' => [
+                    ['slug' => 'ketel-one', 'name' => 'Ketel One'],
+                    ['slug' => 'absolut-blue', 'name' => 'Absolut Blue', 'aliases' => ['absolut']],
+                ],
             ],
             [
                 'slug' => 'brandy',
@@ -155,8 +277,15 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Spirit,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
-                    ['slug' => 'cognac', 'name' => 'Cognac'],
+                'styles' => [
+                    [
+                        'slug' => 'cognac',
+                        'name' => 'Cognac',
+                        'products' => [
+                            ['slug' => 'hennessy-vs', 'name' => 'Hennessy VS', 'aliases' => ['hennessy']],
+                            ['slug' => 'pierre-ferrand-1840', 'name' => 'Pierre Ferrand 1840'],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -165,9 +294,26 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Fortified,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
-                    ['slug' => 'sweet-vermouth', 'name' => 'Sweet Vermouth', 'aliases' => ['red vermouth', 'rosso', 'italian vermouth']],
-                    ['slug' => 'dry-vermouth', 'name' => 'Dry Vermouth', 'aliases' => ['white vermouth', 'french vermouth']],
+                'styles' => [
+                    [
+                        'slug' => 'sweet-vermouth',
+                        'name' => 'Sweet Vermouth',
+                        'aliases' => ['red vermouth', 'rosso', 'italian vermouth'],
+                        'products' => [
+                            ['slug' => 'carpano-antica', 'name' => 'Carpano Antica Formula', 'aliases' => ['carpano']],
+                            ['slug' => 'martini-rosso', 'name' => 'Martini Rosso'],
+                            ['slug' => 'cocchi-di-torino', 'name' => 'Cocchi Storico Vermouth di Torino', 'aliases' => ['cocchi']],
+                        ],
+                    ],
+                    [
+                        'slug' => 'dry-vermouth',
+                        'name' => 'Dry Vermouth',
+                        'aliases' => ['white vermouth', 'french vermouth'],
+                        'products' => [
+                            ['slug' => 'dolin-dry', 'name' => 'Dolin Dry', 'aliases' => ['dolin']],
+                            ['slug' => 'noilly-prat', 'name' => 'Noilly Prat Original Dry', 'aliases' => ['noilly prat']],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -180,6 +326,7 @@ class IngredientSeeder extends Seeder
                 'products' => [
                     ['slug' => 'campari', 'name' => 'Campari'],
                     ['slug' => 'aperol', 'name' => 'Aperol'],
+                    ['slug' => 'select-aperitivo', 'name' => 'Select Aperitivo', 'aliases' => ['select']],
                 ],
             ],
             [
@@ -188,9 +335,23 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Liqueur,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
-                    ['slug' => 'triple-sec', 'name' => 'Triple Sec', 'aliases' => ['orange liqueur', 'cointreau']],
-                    ['slug' => 'maraschino', 'name' => 'Maraschino', 'aliases' => ['luxardo']],
+                'styles' => [
+                    [
+                        'slug' => 'triple-sec',
+                        'name' => 'Triple Sec',
+                        'aliases' => ['orange liqueur'],
+                        'products' => [
+                            ['slug' => 'cointreau', 'name' => 'Cointreau'],
+                            ['slug' => 'ferrand-dry-curacao', 'name' => 'Pierre Ferrand Dry Curacao'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'maraschino',
+                        'name' => 'Maraschino',
+                        'products' => [
+                            ['slug' => 'luxardo-maraschino', 'name' => 'Luxardo Maraschino', 'aliases' => ['luxardo']],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -199,9 +360,23 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Bitters,
                 'is_alcoholic' => true,
                 'default_unit' => MeasurementUnit::Dash,
-                'products' => [
-                    ['slug' => 'angostura', 'name' => 'Angostura Bitters', 'aliases' => ['aromatic bitters']],
-                    ['slug' => 'orange-bitters', 'name' => 'Orange Bitters'],
+                'styles' => [
+                    [
+                        'slug' => 'aromatic-bitters',
+                        'name' => 'Aromatic Bitters',
+                        'products' => [
+                            ['slug' => 'angostura', 'name' => 'Angostura Bitters'],
+                            ['slug' => 'peychauds', 'name' => "Peychaud's Bitters", 'aliases' => ['peychauds']],
+                        ],
+                    ],
+                    [
+                        'slug' => 'orange-bitters',
+                        'name' => 'Orange Bitters',
+                        'products' => [
+                            ['slug' => 'regans-orange-bitters', 'name' => "Regans' Orange Bitters No. 6", 'aliases' => ['regans']],
+                            ['slug' => 'fee-brothers-orange-bitters', 'name' => 'Fee Brothers Orange Bitters'],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -210,7 +385,7 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Fresh,
                 'is_alcoholic' => false,
                 'default_unit' => MeasurementUnit::Count,
-                'products' => [
+                'styles' => [
                     ['slug' => 'lime', 'name' => 'Lime'],
                     ['slug' => 'lemon', 'name' => 'Lemon'],
                     ['slug' => 'orange', 'name' => 'Orange'],
@@ -222,7 +397,7 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Juice,
                 'is_alcoholic' => false,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
+                'styles' => [
                     ['slug' => 'lime-juice', 'name' => 'Lime Juice', 'aliases' => ['fresh lime juice']],
                     ['slug' => 'lemon-juice', 'name' => 'Lemon Juice', 'aliases' => ['fresh lemon juice']],
                 ],
@@ -233,9 +408,16 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Syrup,
                 'is_alcoholic' => false,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
+                'styles' => [
                     ['slug' => 'simple-syrup', 'name' => 'Simple Syrup', 'aliases' => ['sugar syrup', 'gomme']],
-                    ['slug' => 'orgeat', 'name' => 'Orgeat', 'aliases' => ['almond syrup']],
+                    [
+                        'slug' => 'orgeat',
+                        'name' => 'Orgeat',
+                        'aliases' => ['almond syrup'],
+                        'products' => [
+                            ['slug' => 'giffard-orgeat', 'name' => 'Giffard Orgeat'],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -244,10 +426,30 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Mixer,
                 'is_alcoholic' => false,
                 'default_unit' => MeasurementUnit::Millilitre,
-                'products' => [
-                    ['slug' => 'soda-water', 'name' => 'Soda Water', 'aliases' => ['club soda', 'sparkling water']],
-                    ['slug' => 'tonic-water', 'name' => 'Tonic Water', 'aliases' => ['tonic']],
-                    ['slug' => 'ginger-beer', 'name' => 'Ginger Beer'],
+                'styles' => [
+                    [
+                        'slug' => 'soda-water',
+                        'name' => 'Soda Water',
+                        'aliases' => ['club soda', 'sparkling water'],
+                        'products' => [
+                            ['slug' => 'fever-tree-soda', 'name' => 'Fever-Tree Soda Water'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'tonic-water',
+                        'name' => 'Tonic Water',
+                        'aliases' => ['tonic'],
+                        'products' => [
+                            ['slug' => 'fever-tree-tonic', 'name' => 'Fever-Tree Indian Tonic'],
+                        ],
+                    ],
+                    [
+                        'slug' => 'ginger-beer',
+                        'name' => 'Ginger Beer',
+                        'products' => [
+                            ['slug' => 'bundaberg-ginger-beer', 'name' => 'Bundaberg Ginger Beer', 'aliases' => ['bundaberg']],
+                        ],
+                    ],
                 ],
             ],
             [
@@ -256,12 +458,19 @@ class IngredientSeeder extends Seeder
                 'type' => IngredientType::Garnish,
                 'is_alcoholic' => false,
                 'default_unit' => MeasurementUnit::Count,
-                'products' => [
+                'styles' => [
                     ['slug' => 'orange-peel', 'name' => 'Orange Peel', 'aliases' => ['orange twist']],
                     ['slug' => 'lemon-peel', 'name' => 'Lemon Peel', 'aliases' => ['lemon twist']],
                     ['slug' => 'lime-wheel', 'name' => 'Lime Wheel', 'aliases' => ['lime wedge']],
                     ['slug' => 'mint', 'name' => 'Mint', 'aliases' => ['mint sprig']],
-                    ['slug' => 'cocktail-cherry', 'name' => 'Cocktail Cherry', 'aliases' => ['maraschino cherry']],
+                    [
+                        'slug' => 'cocktail-cherry',
+                        'name' => 'Cocktail Cherry',
+                        'aliases' => ['maraschino cherry'],
+                        'products' => [
+                            ['slug' => 'luxardo-cherries', 'name' => 'Luxardo Maraschino Cherries'],
+                        ],
+                    ],
                 ],
             ],
         ];
