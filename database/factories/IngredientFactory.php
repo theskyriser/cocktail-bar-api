@@ -16,10 +16,10 @@ use Illuminate\Support\Str;
 class IngredientFactory extends Factory
 {
     /**
-     * The categories a recipe line can name, each with the type, alcohol and
-     * unit that belong to it. Drawing the name and deriving the rest from this
-     * map is what stops the factory producing a gin measured in dashes, or a
-     * syrup filed under spirits.
+     * The broad groups a filter chip names, each with the type, alcohol and
+     * unit that belong to it. Every `IngredientType` case appears at least
+     * once, which is what lets `style()` always find a name to match a
+     * parent's type.
      *
      * Names come from a unique pool, so one test may create at most this many
      * distinct categories before Faker overflows.
@@ -28,51 +28,75 @@ class IngredientFactory extends Factory
      */
     private const array CATEGORIES = [
         'Gin' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Whiskey' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Rum' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Tequila' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Vodka' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Brandy' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Mezcal' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Cachaca' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Pisco' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Absinthe' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Vermouth' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
+        'Sherry' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
+        'Port' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
+        'Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Bitter Aperitivo' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Amaro' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Bitters' => [IngredientType::Bitters, true, MeasurementUnit::Dash],
+        'Citrus' => [IngredientType::Fresh, false, MeasurementUnit::Count],
+        'Dairy' => [IngredientType::Fresh, false, MeasurementUnit::Millilitre],
+        'Juice' => [IngredientType::Juice, false, MeasurementUnit::Millilitre],
+        'Syrup' => [IngredientType::Syrup, false, MeasurementUnit::Millilitre],
+        'Mixer' => [IngredientType::Mixer, false, MeasurementUnit::Millilitre],
+        'Garnish' => [IngredientType::Garnish, false, MeasurementUnit::Count],
+    ];
+
+    /**
+     * What a recipe line asks for. Same unique-pool caveat, and the same
+     * type-coverage guarantee as the categories.
+     *
+     * @var array<string, array{IngredientType, bool, MeasurementUnit}>
+     */
+    private const array STYLES = [
         'London Dry Gin' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Old Tom Gin' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Vodka' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Bourbon' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Rye' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Scotch' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Irish Whiskey' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'White Rum' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Dark Rum' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Aged Rum' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Cachaca' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Bourbon' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Rye Whiskey' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Scotch Whisky' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Irish Whiskey' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Blanco Tequila' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Reposado Tequila' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Mezcal' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Cognac' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
+        'Armagnac' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
         'Calvados' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Pisco' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Absinthe' => [IngredientType::Spirit, true, MeasurementUnit::Millilitre],
-        'Bitter Aperitivo' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
-        'Orange Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
-        'Maraschino Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
-        'Elderflower Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
-        'Coffee Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
-        'Creme de Cassis' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
-        'Green Chartreuse' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
         'Sweet Vermouth' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
         'Dry Vermouth' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
         'Blanc Vermouth' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
         'Fino Sherry' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
         'Tawny Port' => [IngredientType::Fortified, true, MeasurementUnit::Millilitre],
+        'Triple Sec' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Maraschino' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Creme de Cassis' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Elderflower Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
+        'Coffee Liqueur' => [IngredientType::Liqueur, true, MeasurementUnit::Millilitre],
         'Aromatic Bitters' => [IngredientType::Bitters, true, MeasurementUnit::Dash],
         'Orange Bitters' => [IngredientType::Bitters, true, MeasurementUnit::Dash],
         'Peach Bitters' => [IngredientType::Bitters, true, MeasurementUnit::Dash],
         'Celery Bitters' => [IngredientType::Bitters, true, MeasurementUnit::Dash],
+        'Lime' => [IngredientType::Fresh, false, MeasurementUnit::Count],
+        'Lemon' => [IngredientType::Fresh, false, MeasurementUnit::Count],
+        'Orange' => [IngredientType::Fresh, false, MeasurementUnit::Count],
+        'Grapefruit' => [IngredientType::Fresh, false, MeasurementUnit::Count],
+        'Egg White' => [IngredientType::Fresh, false, MeasurementUnit::Millilitre],
+        'Heavy Cream' => [IngredientType::Fresh, false, MeasurementUnit::Millilitre],
         'Lime Juice' => [IngredientType::Juice, false, MeasurementUnit::Millilitre],
         'Lemon Juice' => [IngredientType::Juice, false, MeasurementUnit::Millilitre],
         'Grapefruit Juice' => [IngredientType::Juice, false, MeasurementUnit::Millilitre],
         'Pineapple Juice' => [IngredientType::Juice, false, MeasurementUnit::Millilitre],
-        'Orange Juice' => [IngredientType::Juice, false, MeasurementUnit::Millilitre],
-        'Limes' => [IngredientType::Fresh, false, MeasurementUnit::Count],
-        'Lemons' => [IngredientType::Fresh, false, MeasurementUnit::Count],
-        'Oranges' => [IngredientType::Fresh, false, MeasurementUnit::Count],
-        'Eggs' => [IngredientType::Fresh, false, MeasurementUnit::Count],
-        'Egg White' => [IngredientType::Fresh, false, MeasurementUnit::Millilitre],
-        'Heavy Cream' => [IngredientType::Fresh, false, MeasurementUnit::Millilitre],
         'Simple Syrup' => [IngredientType::Syrup, false, MeasurementUnit::Millilitre],
         'Demerara Syrup' => [IngredientType::Syrup, false, MeasurementUnit::Millilitre],
         'Orgeat' => [IngredientType::Syrup, false, MeasurementUnit::Millilitre],
@@ -82,18 +106,18 @@ class IngredientFactory extends Factory
         'Tonic Water' => [IngredientType::Mixer, false, MeasurementUnit::Millilitre],
         'Ginger Beer' => [IngredientType::Mixer, false, MeasurementUnit::Millilitre],
         'Cola' => [IngredientType::Mixer, false, MeasurementUnit::Millilitre],
-        'Prosecco' => [IngredientType::Mixer, true, MeasurementUnit::Millilitre],
-        'Mint Sprig' => [IngredientType::Garnish, false, MeasurementUnit::Count],
-        'Orange Twist' => [IngredientType::Garnish, false, MeasurementUnit::Count],
-        'Lemon Twist' => [IngredientType::Garnish, false, MeasurementUnit::Count],
-        'Maraschino Cherry' => [IngredientType::Garnish, false, MeasurementUnit::Count],
+        'Mint' => [IngredientType::Garnish, false, MeasurementUnit::Count],
+        'Orange Peel' => [IngredientType::Garnish, false, MeasurementUnit::Count],
+        'Lemon Peel' => [IngredientType::Garnish, false, MeasurementUnit::Count],
+        'Lime Wheel' => [IngredientType::Garnish, false, MeasurementUnit::Count],
+        'Cocktail Cherry' => [IngredientType::Garnish, false, MeasurementUnit::Count],
         'Olive' => [IngredientType::Garnish, false, MeasurementUnit::Count],
     ];
 
     /**
-     * Bottles that sit beneath a category. They carry no type, alcohol or unit
-     * of their own — those come from the parent — so a name is all that is
-     * needed here. Same unique-pool caveat as the categories.
+     * Brands — what someone actually puts on a shelf. They carry no type,
+     * alcohol or unit of their own; those come from the parent, so a name is
+     * all that is needed here. Same unique-pool caveat.
      *
      * @var list<string>
      */
@@ -115,11 +139,13 @@ class IngredientFactory extends Factory
         'Pernod Absinthe', 'Angostura Aromatic Bitters', "Peychaud's Bitters",
         'Regans Orange Bitters No 6', 'Fever-Tree Indian Tonic',
         'Fever-Tree Soda Water', 'Bundaberg Ginger Beer', 'Giffard Orgeat',
+        'Luxardo Maraschino Cherries', 'Fee Brothers Orange Bitters',
     ];
 
     /**
-     * Define the model's default state: a curated category, the row a recipe
-     * line names. `path` is left out — the model's saving hook derives it.
+     * Define the model's default state: a curated category, the broad group at
+     * the root of the tree. `path` is left out — the model's saving hook
+     * derives it.
      *
      * @return array<string, mixed>
      */
@@ -152,32 +178,60 @@ class IngredientFactory extends Factory
     }
 
     /**
-     * A bottle beneath the given category, taking its type, alcohol and unit
-     * from the parent rather than from the caller — the same inheritance
-     * `IngredientSeeder` applies when it spreads a category over its products.
-     * A product that disagrees with its category is a row the seeder can never
-     * produce, so the factory does not offer a way to build one.
+     * A style — what a recipe line asks for — beneath the given category, or
+     * beneath one generated for it. The name is drawn from the styles matching
+     * the parent's type, so a Bourbon never lands under Garnish. Type, alcohol
+     * and unit come from the parent, not from the caller.
+     *
+     * The category is resolved as the chain is built, not per row, so
+     * `count(3)->style()` gives three styles under one category.
      */
-    public function under(Ingredient $category): static
+    public function style(?Ingredient $category = null): static
     {
+        $parent = $category ?? static::new()->createOne();
+        $names = $this->styleNamesFor($parent->type);
+
         return $this->state(fn (array $attributes): array => [
-            'parent_id' => $category->id,
-            'kind' => IngredientKind::Product,
-            'name' => (string) $this->faker->unique()->randomElement(self::PRODUCTS),
-            'type' => $category->type,
-            'is_alcoholic' => $category->is_alcoholic,
-            'default_unit' => $category->default_unit,
+            'parent_id' => $parent->id,
+            'kind' => IngredientKind::Style,
+            'name' => (string) $this->faker->unique()->randomElement($names),
+            'type' => $parent->type,
+            'is_alcoholic' => $parent->is_alcoholic,
+            'default_unit' => $parent->default_unit,
         ]);
     }
 
     /**
-     * A bottle beneath a category generated for it. The category is created as
-     * the chain is built, not per row, so `count(3)->product()` gives three
-     * bottles on one shelf.
+     * A brand beneath the given row, taking its type, alcohol and unit from
+     * that parent rather than from the caller — the same inheritance
+     * `IngredientSeeder` applies. A brand that disagrees with what it is a
+     * brand of is a row the seeder can never produce, so the factory offers no
+     * way to build one.
+     *
+     * The parent may be a style (Buffalo Trace under Bourbon) or a category
+     * directly (Plymouth Gin under Gin), because brands are not uniform in
+     * depth.
      */
-    public function product(?Ingredient $category = null): static
+    public function under(Ingredient $parent): static
     {
-        return $this->under($category ?? static::new()->createOne());
+        return $this->state(fn (array $attributes): array => [
+            'parent_id' => $parent->id,
+            'kind' => IngredientKind::Product,
+            'name' => (string) $this->faker->unique()->randomElement(self::PRODUCTS),
+            'type' => $parent->type,
+            'is_alcoholic' => $parent->is_alcoholic,
+            'default_unit' => $parent->default_unit,
+        ]);
+    }
+
+    /**
+     * A brand beneath the given row, or beneath a whole category-and-style
+     * chain generated for it. Resolved as the chain is built, so
+     * `count(3)->product()` gives three brands of one style.
+     */
+    public function product(?Ingredient $parent = null): static
+    {
+        return $this->under($parent ?? static::new()->style()->createOne());
     }
 
     /**
@@ -227,5 +281,19 @@ class IngredientFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'created_by_user_id' => $user->id,
         ]);
+    }
+
+    /**
+     * Every `IngredientType` case appears in `STYLES`, so this is never empty
+     * for any type a parent can hold.
+     *
+     * @return list<string>
+     */
+    private function styleNamesFor(IngredientType $type): array
+    {
+        return array_keys(array_filter(
+            self::STYLES,
+            fn (array $attributes): bool => $attributes[0] === $type,
+        ));
     }
 }

@@ -13,6 +13,12 @@ class BarStockSeeder extends Seeder
      * recipes land ready, the Manhattan only via the rye-to-bourbon swap, and
      * four sit one ingredient short. Amounts are in the ingredient's own unit —
      * millilitres for a bottle, dashes for bitters, whole fruit for a lime.
+     *
+     * A shelf holds brands, so each row names a product where the catalogue
+     * has one. Where it does not — a lime, mint, homemade syrup — the style is
+     * the most specific row there is, and the shelf names that instead. The
+     * styles represented are the same ones as before, so what is ready, what
+     * needs a swap and what is one short all stay put.
      */
     public function run(): void
     {
@@ -43,25 +49,25 @@ class BarStockSeeder extends Seeder
     private function shelf(): array
     {
         return [
-            'london-dry-gin' => [520, 700],
-            'bourbon' => [300, 700],
-            'dark-rum' => [480, 700],
+            'tanqueray' => [520, 700],
+            'buffalo-trace' => [300, 700],
+            'appleton-signature' => [480, 700],
             'campari' => [400, 700],
-            'sweet-vermouth' => [180, 750],
-            'triple-sec' => [250, 700],
+            'carpano-antica' => [180, 750],
+            'cointreau' => [250, 700],
             'angostura' => [60, 100],
-            'orange-bitters' => [80, 100],
+            'regans-orange-bitters' => [80, 100],
+            'fever-tree-tonic' => [1000, 1000],
+            'fever-tree-soda' => [1500, 1500],
+            'luxardo-cherries' => [10, null],
             'simple-syrup' => [250, 500],
             'lime-juice' => [90, 250],
-            'tonic-water' => [1000, 1000],
-            'soda-water' => [1500, 1500],
             'lime' => [3, null],
             'lemon' => [2, null],
             'orange' => [2, null],
             'mint' => [1, null],
             'orange-peel' => [4, null],
             'lime-wheel' => [3, null],
-            'cocktail-cherry' => [10, null],
         ];
     }
 }
