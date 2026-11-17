@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Concerns;
+namespace Tests\Feature\Concerns;
 
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -12,7 +12,7 @@ trait ProfileValidationRules
     /**
      * Get the validation rules used to validate user profiles.
      *
-     * @return array<string, array<int, Unique|ValidationRule|array<mixed>|string>>
+     * @return ValidationRule
      */
     protected function profileRules(?int $userId = null): array
     {

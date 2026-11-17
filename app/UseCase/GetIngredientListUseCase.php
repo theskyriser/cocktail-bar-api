@@ -27,6 +27,7 @@ class GetIngredientListUseCase
                     : $kept->push($path),
                 collect(),
             );
+
         $pathMatching = Ingredient::query()->underAny($roots)->product()
             ->select('id', 'name')
             ->visibleTo($user)

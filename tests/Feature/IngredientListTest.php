@@ -2,16 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Concerns\ActingAsUser;
-use App\Enums\IngredientKind;
 use App\Enums\IngredientType;
-use App\Enums\MeasurementUnit;
-use App\Models\Bar;
-use App\Models\BarStock;
 use App\Models\Ingredient;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Feature\Concerns\ActingAsUser;
 use Tests\TestCase;
 use function PHPUnit\Framework\assertCount;
 
