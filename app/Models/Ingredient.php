@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 
 /**
  * @property int $id
@@ -208,4 +209,67 @@ class Ingredient extends Model
                 ->orWhere('path', 'like', $path->descendantPattern());
         });
     }
+
+    /**
+     * @param Builder $query
+     * @return void
+     */
+    #[Scope]
+    protected function product(Builder $query): void
+    {
+        $query->where($query->qualifyColumn('kind'), IngredientKind::Product);
+    }
+
+    /**
+     * @param Builder $query
+     * @param string $like
+     * @return void
+     */
+    #[Scope]
+    protected function matching(Builder $query, string $like): void
+    {
+        $query->where(function (Builder $nested) use ($like): void {
+            $name = $nested->qualifyColumn('name');
+            $nested->orWhereRaw($name." LIKE ? ESCAPE '!'", $like)
+                ->orWhereHas('aliases', function (Builder $nested) use ($like): void {
+                    $nested->orWhereRaw("alias LIKE ? ESCAPE '!'", $like);
+                });
+        });
+    }
+
+    /**
+     * @param Builder $query
+     * @param SupportCollection $seeds
+     * @return void
+     */
+    #[Scope]
+    protected function underAny(Builder $query, SupportCollection $seeds): void
+    {
+        $query->where(function (Builder $nested) use ($seeds): void {
+            $strings = $seeds->map(function ($seed) {
+                return $seed->value;
+            });
+
+            $nested->whereIn('path', $strings)->orWhere(function (Builder $nested) use ($seeds): void {
+                foreach ($seeds as $seed) {
+                    $nested->orWhere('path', 'like', $seed->descendantPattern());
+                }
+            });
+        });
+    }
+
+    /** @property-read ?string $parent_name  only present when withParentName() is applied */
+
+    #[Scope]
+    public function withParentName(Builder $query): void
+    {
+        $query->addSelect([
+            'parent_name' => Ingredient::query()
+                ->from('ingredients as p')
+                ->select('p.name')
+                ->whereColumn('p.id', 'ingredients.parent_id')
+                ->limit(1),
+        ]);
+    }
+
 }

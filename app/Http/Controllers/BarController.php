@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\DTO\BarList\BarListData;
-use App\Http\UseCase\ListBarsUseCase;
 use App\Models\Bar;
+use App\UseCase\ListBarsUseCase;
 use Illuminate\Http\Request;
 
 class BarController extends Controller
