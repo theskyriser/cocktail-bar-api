@@ -2,17 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\DTO\IngredientList\GetIngredientListRequest;
 use App\Models\Ingredient;
+use App\UseCase\GetIngredientListUseCase;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class IngredientController extends Controller
 {
+    public function __construct(
+        public GetIngredientListUseCase $getIngredientListUseCase,
+    )
+    {
+
+    }
     /**
      * Display a listing of the resource.
      */
-    public function index(): void
+    public function index(GetIngredientListRequest $getIngredientListRequest): JsonResponse
     {
-        //
+        return $this->getIngredientListUseCase->handle($getIngredientListRequest);
     }
 
     /**

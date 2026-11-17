@@ -6,6 +6,7 @@ use App\Enums\IngredientKind;
 use App\Enums\IngredientType;
 use App\Enums\MeasurementUnit;
 use App\Models\Ingredient;
+use App\Models\IngredientAlias;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -201,6 +202,11 @@ class IngredientFactory extends Factory
         ]);
     }
 
+    public function withAlias(?string $alias) : static
+    {
+        return $this->has(IngredientAlias::factory()->state(array_filter(['alias' => $alias])), 'aliases');
+    }
+
     /**
      * A brand beneath the given row, taking its type, alcohol and unit from
      * that parent rather than from the caller — the same inheritance
@@ -257,7 +263,6 @@ class IngredientFactory extends Factory
             ];
         });
     }
-
     public function alcoholic(bool $isAlcoholic = true): static
     {
         return $this->state(fn (array $attributes): array => [

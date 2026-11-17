@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\UseCase;
+namespace App\UseCase;
 
 use App\DTO\BarList\BarListData;
 use App\Models\Bar;
