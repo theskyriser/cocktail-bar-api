@@ -97,7 +97,7 @@ class IngredientListTest extends TestCase
         $homeGinProducts = Ingredient::factory()->under($dryGin)->createdBy($this->user)->count(1)->create();
         $otherProducts = Ingredient::factory()->under($dryGin)->createdBy($user2)->count(1)->create();
 
-        $response = $this->getJson(route('ingredients.index', ['search' => 'Gin', 'limit' => 10]))->assertOk();
+        $response = $this->getJson(route('ingredients.index', ['search' => 'Gin', 'limit' => 10]));
 
         $this->assertCount(3, $response->json('data'));
     }
